@@ -1,0 +1,28 @@
+#IDE
+.settings/
+*.project
+*.pydevproject
+
+#Misc
+*.png
+*.jpg
+*.gif
+*.sh
+*.bat
+*.txt
+*.rtf
+
+#Python files
+*.pyc
+*.pyd
+*.exe
+*.dll
+*.h
+*.lib
+include/
+qt4_plugins/
+plugins/
+
+#Program files
+*.bkp
+*.bin
