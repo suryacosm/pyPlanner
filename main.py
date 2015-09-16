@@ -606,19 +606,23 @@ class GoalLogic(QtCore.QObject):
     def run(self):
 
         if self.isMSec:
-            #Cycle through large numbers, every MSEC seconds
-            while self.duration > self.MSEC:
-                time.sleep(self.MSEC/1000.0)
-                self.duration -= self.MSEC
+            runtime = time.time() + (self.duration/1000.0)
+            
+            while time.time() < runtime:
+                #Cycle through large numbers, every MSEC seconds
+                #Improves responsiveness when computer has fallen asleep
+                if self.duration >= self.MSEC_DELAY:
+                    time.sleep(self.MSEC_DELAY/1000.0)
+                    self.duration -= self.MSEC_DELAY
+                else:
+                    time.sleep( self.duration/1000.0 )
                 if self._wasStopped(): return
 
-            time.sleep(self.duration / 1000.0)
             if self._wasStopped(): return
         else:
             raise NotImplementedError( "Not implemented qthread/qobject" )            
                 
         self.completed.emit()
- 
 class Goal(object):
     def __init__(self, seconds, currentTime, imagePath="", mp3Path="", title="", initialSeconds=0, gwp=None):
         self.seconds = seconds
