@@ -3,6 +3,9 @@ from PyQt4 import QtGui, QtCore
 from globalsettings import PROGRAM_NAME
 
 class SystemTray(QtGui.QSystemTrayIcon):
+    '''
+    A simple system tray with support for .gif icons
+    '''
     
     clicked = QtCore.pyqtSignal()
     
@@ -20,17 +23,11 @@ class SystemTray(QtGui.QSystemTrayIcon):
         self.menu.addSeparator()
         self.exitAction = self.menu.addAction("Exit")
         self.setContextMenu(self.menu)
-    
-    '''
-    def showEvent(self, event):
-        if self.gif: self.gif.start()
-        super(SystemTray, self).showEvent( event )
 
-    def hideEvent(self, event):
-        if self.gif: self.gif.stop()
-        super(SystemTray, self).hideEvent( event )
-    '''
-    
+    def setIcon(self, icon):
+        self.gif = None
+        super(SystemTray, self).setIcon(icon)
+         
     def show(self):
         if self.gif: self.gif.start()
         super(SystemTray, self).show()
@@ -39,19 +36,13 @@ class SystemTray(QtGui.QSystemTrayIcon):
         if self.gif: self.gif.stop()        
         super(SystemTray, self).hide()
             
-    def setIcon(self, icon):
-        self.gif = None
-        super(SystemTray, self).setIcon(icon)
-        
     def SetGifIcon(self,iconPath):
         self.gif = QtGui.QMovie(iconPath);
         self.gif.frameChanged.connect(self._onChangeImage)
-        #self.gif.start()
-        if self.gif.isValid(): self._onChangeImage()
+        if self.gif.isValid(): self._onChangeImage()   
         
     def _onChangeImage(self):
         super(SystemTray, self).setIcon( QtGui.QIcon(self.gif.currentPixmap()) )
-        #self.setIcon( QtGui.QIcon(self.gif.currentPixmap()) )
 
 class ExtraDateTimeEdit(QtGui.QDateTimeEdit):
     '''
@@ -68,7 +59,7 @@ class ExtraDateTimeEdit(QtGui.QDateTimeEdit):
         self.UpdateClock()
     
     def UpdateClock(self):
-        if not self.hasFocus() and not self.dirty:# and self.isVisibleTo():
+        if not self.hasFocus() and not self.dirty:
             self.setDateTime(QtCore.QDateTime.currentDateTime() )
         else:
             self.dirty = True
@@ -76,7 +67,8 @@ class ExtraDateTimeEdit(QtGui.QDateTimeEdit):
 class ExtraLCDDisplay(QtGui.QLCDNumber):
     '''
     A simple ticking QLCD display 
-    Does not display AM/PM (Because it is mainly used for numbers)
+    Does not display "AM" or "PM" (Only support for numbers and limited letters)
+    A custom widget might prove more useful for displaying AM/PM
     '''
     def __init__(self,*args, **kwargs):
         super(ExtraLCDDisplay,self).__init__(*args, **kwargs)
@@ -92,7 +84,6 @@ class ExtraLCDDisplay(QtGui.QLCDNumber):
         self.display(time.strftime("%I:%M:%S"))
 
 class ExtraPictureLabel(QtGui.QLabel):
-    doubleClicked = QtCore.pyqtSignal()
     '''
     Double clickable
     Added a keep aspect ratio feature 
@@ -100,6 +91,9 @@ class ExtraPictureLabel(QtGui.QLabel):
         Does not interfere with other options such as SetScaledContents
         Fixed an issue where QT may not center the picture after resizing horizontally (Qt.KeepAspectRatio)
     '''
+    
+    doubleClicked = QtCore.pyqtSignal()
+     
     def __init__(self, *args, **kwargs):
         super(ExtraPictureLabel, self).__init__(*args, **kwargs)
         self._keep = False
@@ -157,28 +151,25 @@ class ExtraPictureLabel(QtGui.QLabel):
 
 class ExtraSplashScreen(QtGui.QSplashScreen):
     '''
-    A splashscreen that now emits hide and show signals
+    A splashscreen that emits hide and show signals
     
     Useful for easier cleanup on the main widget 
     (where we keep a cache so that splash screens that
     do not need a parent are displayed correctly)
     And for running logic when it appears on the screen, 
     such as playing music files
+    
+    Press Esc to close, when in focus (better to close 
+    from main widget or higher)
     '''
-    #completed = QtCore.pyqtSignal()
+    
+    completed = QtCore.pyqtSignal()
     shown = QtCore.pyqtSignal()
     hidden = QtCore.pyqtSignal()
-    
-    
+        
     def __init__(self,*args,**kwargs):
         super(ExtraSplashScreen,self).__init__(*args,**kwargs)
-        #self.label  = QtGui.QLabel("thing")
-        #self.setLayout(QtGui.QHBoxLayout())
-        #self.layout().addWidget(self.label)
-        
-    #def finish(self, parent=None):     
-    #    self.completed.emit() 
-    #    super(ExtraSplashScreen,self).finish(parent)
+
     def keyPressEvent(self, e):
         if e.key() == QtCore.Qt.Key_Escape:
             print "Hiding Splash Screen"
@@ -196,7 +187,7 @@ class ExtraSplashScreen(QtGui.QSplashScreen):
         super(ExtraSplashScreen,self).showEvent(event)
     
     def closeEvent(self,event):
-        #self.completed.emit()
+        self.completed.emit()
         super(ExtraSplashScreen,self).closeEvent(event)
        
 
