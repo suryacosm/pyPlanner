@@ -10,89 +10,25 @@ from extrawidgets import SystemTray, ExtraLCDDisplay, ExtraSplashScreen
 from goalwidgets import GoalWidget, GoalListWidgetPart
 from globalsettings import PROGRAM_NAME, REGISTRY_PATH, generateID
 
-CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-os.chdir(CURRENT_PATH)
-
 class MasterControl(QtGui.QWidget):
-        
-    def CreateTray(self):
-        #self.setWindowFlags(QtCore.Qt.Tool)
-        if self.tray is not None: return
-        
-        iconImage = QtGui.QPixmap("No_Image_Available.png")
-        icon = None
-        if not iconImage.isNull():
-            icon = QtGui.QIcon(iconImage)
-            
-        self.tray = SystemTray(icon)
-        self.tray.exitAction.triggered.connect(self.close)
-        self.tray.showAction.triggered.connect(self._putOnTop)
-        self.tray.activated.connect(self._handleShowTray)
-        #self.tray.show()
-
-    def HandleShow(self):
-        #Check for minimized Start
-        try:
-            if sys.argv[1] == "-mini":
-                print "SYS.ARGV[1]:",sys.argv[1]
-                print "Minimized Start"
-                self.hide()
-                self.tray.show()
-                self.tray.showMessage(PROGRAM_NAME,"Started Minimized",QtGui.QSystemTrayIcon.Information,10000)
-            else:
-                print "SYS.ARGV[1]:",sys.argv[1]
-                self.show()
-                self.tray.hide()
-        except Exception as e:
-            #print "NO SYS.ARGV[1]:",
-            #print type(e), e
-            self.show()
-            self.tray.hide()
-
-    def LoadRegistrySettings(self):
-        self.registrySettings = QtCore.QSettings(REGISTRY_PATH, QtCore.QSettings.NativeFormat)
-        print "Boot on Windows Startup:",self.registrySettings.contains("Boot_"+PROGRAM_NAME)
-        self.registryCheckbox.setChecked( self.registrySettings.contains("Boot_"+PROGRAM_NAME) )
-        self.registryCheckbox.stateChanged.connect(self._registryCheckboxChecked)
-
-    def _handleShowTray(self, reason):
-        if reason == QtGui.QSystemTrayIcon.Context:
-            self.tray.contextMenu().show()
-        else:
-            self._putOnTop()
-    
-    def _putOnTop(self):
-        #Does not work well
-        #self.raise_()
-        self.show()
-        
-        #For Windows OS
-        self.setWindowState(self.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)
-        self.activateWindow()
-    
-    def _registryCheckboxChecked(self,state):
-        if state == QtCore.Qt.Checked:
-            self.registrySettings.setValue("Boot_"+PROGRAM_NAME, '"' + sys.argv[0] + '"' + " -mini")
-        else:
-            self.registrySettings.remove("Boot_"+PROGRAM_NAME)
             
     def __init__(self, parent=None):   
         super(MasterControl, self).__init__(parent)
         self.tray = None
         self.CreateTray()
 
-        #---- Styling Stuff ----#
+        #---- Styling ----#
         self.resize(1000, 500)
-        self.center()
+        self.Center()
 
-        self.HandleShow()
+        self._initial_show()
             
         self.mainLayout = QtGui.QGridLayout()
         self.setLayout(self.mainLayout)
-        #-----------------------#
+        #-----------------#
         
      
-        #----- Buttons Container ---------#    
+        #----- Buttons Container (Top of Main Widget) -------#    
         self.topWidget = QtGui.QWidget()
         self.topWidget.setLayout(QtGui.QHBoxLayout() )
     
@@ -100,20 +36,11 @@ class MasterControl(QtGui.QWidget):
         self.addGoalWidgetButton.clicked.connect(self.AppendGoalWidget)
         
         self.registryCheckbox = QtGui.QCheckBox("Boot on Windows Start")
-        
-        '''
-        note = ""
-        count = 1
-        for arg in sys.argv:
-            note += "(" + str(count) + ")" + arg + " "
-            count += 1
-        self.quickNote = QtGui.QLabel(note)
-        '''
-        
+
         self.topWidget.layout().addWidget( self.addGoalWidgetButton )
         self.topWidget.layout().addWidget( ExtraLCDDisplay() )
         self.topWidget.layout().addWidget( self.registryCheckbox )
-        #self.topWidget.layout().addWidget(self.quickNote)
+
         self.topWidget.layout().addItem(QtGui.QSpacerItem( 1, 1, QtGui.QSizePolicy.Expanding) )
         #----- End of Button Container ---#
         
@@ -145,7 +72,6 @@ class MasterControl(QtGui.QWidget):
         
         self.goalListWidgetScroll = QtGui.QScrollArea()
         self.goalListWidgetScroll.setWidgetResizable(True)
-        #self.goalListWidgetScroll.setMaximumWidth(200)
         
         #Buffer area
         self.goalListWidgetBuffer = QtGui.QWidget()
@@ -155,7 +81,7 @@ class MasterControl(QtGui.QWidget):
         self.goalListWidgetBuffer.setLayout(goalListBufferLayout)
         
         #List Widget
-        self.goalListWidget = QtGui.QWidget() #QtGui.QListWidget()
+        self.goalListWidget = QtGui.QWidget() 
         self.goalListWidgetLayout = QtGui.QVBoxLayout()
         self.goalListWidgetLayout.setSpacing(0)
         self.goalListWidgetLayout.setMargin(0)
@@ -180,7 +106,6 @@ class MasterControl(QtGui.QWidget):
         self.mainLayout.addWidget(self.topWidget,0,0)
         self.mainLayout.addWidget(self.bottomWidget,1,0)
         
-        
         #Cache needed or else splash screens will display properly
         self.splashes = []
         
@@ -191,18 +116,42 @@ class MasterControl(QtGui.QWidget):
         #Cache needed or else threads just stop running immiediately 
         self.qthreads = []
         self.qobjects = []
-    
-        #Periodically save widget info
-        #QtCore.QTimer.singleShot(120000, self.SaveWidgets)
         
-        #Delay load until main widgets appear first
+        #Delay loading of saved widgets and goals until container widgets appear first
         QtCore.QTimer.singleShot(0, self._load)
 
     def _load(self):
         self.LoadRegistrySettings()
         self.LoadWidgets()
         self.LoadRunningGoals()
-    
+
+    def CreateTray(self, showTray=False):
+        if self.tray is not None: return
+        
+        iconImage = QtGui.QPixmap("No_Image_Available.png")
+        icon = None
+        if not iconImage.isNull():
+            icon = QtGui.QIcon(iconImage)
+            
+        self.tray = SystemTray(icon)
+        self.tray.exitAction.triggered.connect(self.close)
+        self.tray.showAction.triggered.connect(self.ShowOnTop)
+        self.tray.activated.connect(self._handle_show_tray)
+        
+        if showTray: self.tray.show()
+
+    def LoadRegistrySettings(self):
+        self.registrySettings = QtCore.QSettings(REGISTRY_PATH, QtCore.QSettings.NativeFormat)
+        print "Boot on Windows Startup:", self.registrySettings.contains("Boot_"+PROGRAM_NAME)
+        self.registryCheckbox.setChecked( self.registrySettings.contains("Boot_"+PROGRAM_NAME) )
+        self.registryCheckbox.stateChanged.connect(self._registry_checkbox_checked)
+
+    def ShowOnTop(self):
+        self.show()
+        #For Windows OS
+        self.setWindowState(self.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)
+        self.activateWindow()
+            
     def AppendGoalWidget(self):
         gw = GoalWidget(None)
         gw.removeClicked.connect(self.RemoveGoalWidget)
@@ -212,17 +161,18 @@ class MasterControl(QtGui.QWidget):
         self.scrollAreaWidget.layout().addWidget(gw)
         self.goalWidgets.append(gw)
 
-    def RemoveGoalWidget(self, gw):
-        print "Removing gw"
-        #Save the widget here
+    def RemoveGoalWidget(self, gw=None):
+        if gw is None: return
+        
         gw.removeClicked.disconnect()
         gw.deleteLater()
         
         self.goalWidgets.remove(gw)
         self.scrollAreaWidget.layout().removeWidget(gw)
-        #self.SaveWidgets()
-              
-    def StartCreatingGoal(self, gw):
+
+    def StartCreatingGoal(self, gw=None):
+        if gw is None: return
+        
         now = self._currentDateTime()
         dt = now.msecsTo( gw.dateTimeEdit.dateTime() )
         if dt < 0: dt = 0
@@ -238,23 +188,23 @@ class MasterControl(QtGui.QWidget):
     
         gwp = self.CreateGoalWidgetPart(goal)
         self.AddGoalThread(goal, gwp)
-        #gwp.removeButton.clicked.connect(lambda : self.RemoveGoalWidget(gwp, goal, qobject) )
         
         print "Started Goal:", title, now.toString(), "DELTA(ms):", dt,"\n"
         self.SaveRunningGoals()
         
-    def CreateGoalWidgetPart(self, goal):
+    def CreateGoalWidgetPart(self, goal=None):
+        if goal is None: return
+        
         gwp = GoalListWidgetPart()
         gwp.titleLabel.setText(goal.title)
         
         gwp.dateTimeEdit.setDateTime( goal.registeredTime.addMSecs(goal.initialSeconds) )
-        #gwp.removeButton.clicked.connect(lambda : self.RemoveGoalWidgetPart(gwp,goal) )
         self.goalListWidgetLayout.addWidget( gwp )
         return gwp
     
-    def RemoveGoalWidgetPart(self, gwp, goal=None):
-        #self.listWidgets.remove(gwp)
-        #qobject.StopRunning()
+    def RemoveGoalWidgetPart(self, gwp=None, goal=None):
+        if gwp is None: return
+
         if goal:
             try:
                 self.runningGoals.remove(goal)
@@ -265,11 +215,12 @@ class MasterControl(QtGui.QWidget):
         self.goalListWidgetLayout.removeWidget(gwp)
         gwp.deleteLater()
         
-    def AddGoalThread(self,goal, gwp):
+    def AddGoalThread(self, goal=None, gwp=None):
+        if goal is None or gwp is None: return
+        
         qthread = QtCore.QThread()
         qobject = GoalLogic(goal.seconds)
-        qobject.moveToThread(qthread)                                       
-        
+        qobject.moveToThread(qthread)
         
         qobject.completed.connect(lambda : self.RunGoal(goal, gwp) )#, qobject, qthread) )
         qobject.completed.connect(qthread.quit)
@@ -286,14 +237,12 @@ class MasterControl(QtGui.QWidget):
         
         qthread.start()  
                 
-    def RunGoal(self, goal, gwp):
-        print "Running Goal"
-
+    def RunGoal(self, goal=None, gwp=None):
+        if goal is None or gwp is None: return
+        
         message = "Goal: "+str(goal.title)+"\nFinished: "+str( self._currentDateTime().toString() )+"\nStarted: "+str(goal.registeredTime.toString())+"\nDT: "+str(goal.seconds)+" milliseconds"
-        print message,"\n"
-        #QtGui.QMessageBox.warning(None, "Timer Complete: "+goal.title, message)
-                
-        #print goal.imagePath
+        print "Running Goal",message,"\n"
+        
         if goal.imagePath != "":
             splashPix = QtGui.QPixmap(goal.imagePath)
         else:
@@ -321,12 +270,8 @@ class MasterControl(QtGui.QWidget):
             
         self.RemoveGoalWidgetPart(gwp, goal)
         
-        #self.runningGoals.remove(goal)
-        #self.SaveRunningGoals()
-               
     def SaveRunningGoals(self):
         #Save File, cleanup
-        #print "Saving running Goals"
         file = QtCore.QFile("goals.bin")
         file.open(QtCore.QIODevice.WriteOnly)
         stream = QtCore.QDataStream(file)
@@ -355,24 +300,28 @@ class MasterControl(QtGui.QWidget):
             title = QtCore.QString()
             initialSeconds = QtCore.QString()
             
-            stream >> timeToGoal #timeToGoal = stream.readInt64()
+            stream >> timeToGoal 
             stream >> registeredTime
             stream >> imagePath
             stream >> mp3Path
             stream >> title
             stream >> initialSeconds
 
-            timeToGoal = int(timeToGoal)
-            initialSeconds = int(initialSeconds)
-            self.runningGoals.append( Goal(timeToGoal, registeredTime, imagePath, mp3Path, title, initialSeconds) )
+
+            self.runningGoals.append( Goal(int(timeToGoal), 
+                                           registeredTime, 
+                                           imagePath, 
+                                           mp3Path, 
+                                           title, 
+                                           int(initialSeconds)) 
+                                     )
         
         file.close()   
         
-        #print "Time now:",self._currentDateTime().toString(),"\n"
+        #Reload threads according to the amount of time passed
         for goal in self.runningGoals:
             now = self._currentDateTime()
-            
-            
+                        
             print "\nReloaded a goal:", goal.title
             print "Started:", goal.registeredTime.toString()
             print "Ending :", goal.registeredTime.addMSecs(goal.seconds).toString(),"\n"
@@ -390,6 +339,7 @@ class MasterControl(QtGui.QWidget):
         file = None
         success = False
         
+        #Try saving 3 times
         for i in range(0,3):
             if not success:
                 try:
@@ -403,8 +353,7 @@ class MasterControl(QtGui.QWidget):
                         stream << gw.titleBar.text()
                         stream << gw.selectAudioEdit.text()
                         stream << gw.selectImageEdit.text()
-                        
-                        #print "SAVEWIDGETS():",gw.lastDirectoryAudio, gw.lastDirectory
+
                         stream << QtCore.QString(gw.lastDirectory)
                         stream << QtCore.QString(gw.lastDirectoryAudio)
                     
@@ -468,24 +417,18 @@ class MasterControl(QtGui.QWidget):
             
             pix = QtGui.QPixmap(imagePathText)
             gw.goalIconLabel.setPixmap( pix )
-            #gw.goalIconLabel.setOriginalPixmap( pix )
-            
-            #print "LOADWIDGETS():", gw.lastDirectoryAudio, gw.lastDirectory
-            
-            #if not lastDirectory.isEmpty():#lastDirectory != "":
+
             gw.lastDirectory = lastDirectory
-            #if lastDirectoryAudio != None:
             gw.lastDirectoryAudio = lastDirectoryAudio   
         
         file.close()
         print "Widgets Loaded"
     
-    def center(self):
+    def Center(self):
         qr = self.frameGeometry()
         cp = QtGui.QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
         self.move(qr.topLeft())
-
 
     def keyPressEvent(self, e):
         if e.key() == QtCore.Qt.Key_Escape:
@@ -505,60 +448,42 @@ class MasterControl(QtGui.QWidget):
         if self.tray: 
             self.tray.hide()
 
-        '''
-        if True and self.hidden:
-            self.setWindowFlags(QtCore.Qt.Window)
-            self.hidden = False
-        #event.accept()   
-        self.show()
-        '''
-        
-        
     def hideEvent(self,event):
         if self.tray:
             self.tray.show()
         
-        '''
-        self.hide()
-        if True:
-            self.hidden = True
-            self.setWindowFlags(QtCore.Qt.ToolTip)
-        '''
-        
     def closeEvent(self,event):
         super(MasterControl,self).closeEvent(event)
         self.tray = None
-        #self.SaveOnExit()
 
-    def SaveOnExit(self):
+    def _initial_show(self):
+        #Check for minimized Start
         try:
-            print "Closing and saving widgets"#"Stopping queue relay thread"
-            print "Goal Widgets",len(self.goalWidgets),"Splash Screens",len(self.splashes),
-            print "QThreads",len(self.qthreads),"QObjects",len(self.qobjects),"Running Goals",len(self.runningGoals)
-            self.SaveWidgets()
-            
-            print sys.argv[0]
-        except Exception as e:
-            print type(e),e
-        
-        try:
-            if self.registryCheckbox.isChecked():
-                self.registrySettings.setValue("Boot_"+PROGRAM_NAME, '"' + sys.argv[0] + '"' + " -mini")
+            if sys.argv[1] == "-mini":
+                print "SYS.ARGV[1]:",sys.argv[1],"\n","Minimized Start"
+                self.hide()
+                self.tray.show()
+                self.tray.showMessage(PROGRAM_NAME,"Started Minimized",QtGui.QSystemTrayIcon.Information,10000)
             else:
-                self.registrySettings.remove("Boot_"+PROGRAM_NAME)
+                print "SYS.ARGV[1]:",sys.argv[1]
+                self.show()
+                self.tray.hide()
         except Exception as e:
-            print type(e),e
+            self.show()
+            self.tray.hide()
             
-        #time.sleep(3)
-        
-        '''
-        self.runningGoals = None
-        self.goalWidgets = None
-        self.splashes = None
-        self.qobjects = None
-        self.qthreads = None
-        '''
-
+    def _handle_show_tray(self, reason):
+        if reason == QtGui.QSystemTrayIcon.Context:
+            self.tray.contextMenu().show()
+        else:
+            self.ShowOnTop()
+    
+    def _registry_checkbox_checked(self,state):
+        if state == QtCore.Qt.Checked:
+            self.registrySettings.setValue("Boot_"+PROGRAM_NAME, '"' + sys.argv[0] + '"' + " -mini")
+        else:
+            self.registrySettings.remove("Boot_"+PROGRAM_NAME)
+            
     def _cleanupQThreads(self, qthread, qobject):
         print "Cleaning up qthreads"
         self.qthreads.remove(qthread)
@@ -572,6 +497,20 @@ class MasterControl(QtGui.QWidget):
     def _currentDateTime(self):
         return QtCore.QDateTime.currentDateTime()
 
+    def _save_on_exit(self):
+        try:
+            print "Closing and saving widgets"
+            print "Goal Widgets",len(self.goalWidgets),"Splash Screens",len(self.splashes),
+            print "QThreads",len(self.qthreads),"QObjects",len(self.qobjects),"Running Goals",len(self.runningGoals)
+            self.SaveWidgets()
+        except Exception as e:
+            print type(e),e
+
+        if self.registryCheckbox.isChecked():
+            self.registrySettings.setValue("Boot_"+PROGRAM_NAME, '"' + sys.argv[0] + '"' + " -mini")
+        else:
+            self.registrySettings.remove("Boot_"+PROGRAM_NAME)
+            
 class GoalLogic(QtCore.QObject):
     '''
     Meant to run on qthread, this qobject runs the goal logic 
@@ -584,7 +523,7 @@ class GoalLogic(QtCore.QObject):
     '''
     stopped = QtCore.pyqtSignal()
     completed = QtCore.pyqtSignal()
-    MSEC = 30000#5000
+    MSEC = 30000
 
     def __init__(self, duration, *args, **kwargs):
         super(GoalLogic,self).__init__(*args,**kwargs)
@@ -595,7 +534,6 @@ class GoalLogic(QtCore.QObject):
     def StopRunning(self):
         self._stop = True
         self.stopped.emit()
-        print "StopRunning() qthread/qobject"
     
     def _wasStopped(self):
         if self._stop:
@@ -623,6 +561,7 @@ class GoalLogic(QtCore.QObject):
             raise NotImplementedError( "Not implemented qthread/qobject" )            
                 
         self.completed.emit()
+        
 class Goal(object):
     def __init__(self, seconds, currentTime, imagePath="", mp3Path="", title="", initialSeconds=0, gwp=None):
         self.seconds = seconds
@@ -662,8 +601,8 @@ if __name__ == '__main__':
     saveIndicatorServer.listen(ID + '-2')
     print "Save Server Up"                 
     
-    #Ended app event loop before saving for responsiveness
-    control.SaveOnExit()
+    #Event loop completed before saving for responsiveness
+    control._save_on_exit()
     saveIndicatorServer.close()
     print "Save Server Down"
     
