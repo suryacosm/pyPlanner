@@ -1,11 +1,14 @@
-from globalsettings import AUTHOR_NAME, PROGRAM_NAME
 from PyQt4 import QtGui,QtCore
+from globalsettings import AUTHOR_NAME, PROGRAM_NAME
 from extrawidgets import ExtraPictureLabel, ExtraDateTimeEdit
 
 class GoalWidget(QtGui.QFrame):
     '''
-    A simple UI to create goal objects from in the main widget
+    A widget that stores information that is used to create goals
+    It is to be contained within the main widget and meant to be
+    created and re-created, for re-useability
     '''
+    
     removeClicked = QtCore.pyqtSignal(object)
     startClicked = QtCore.pyqtSignal(object)
     
@@ -15,17 +18,14 @@ class GoalWidget(QtGui.QFrame):
         self.lastDirectoryAudio = None
         self.lastDirectory = None
         self._loadSettings()
-
         
         self.setFrameShape(QtGui.QFrame.StyledPanel)
         self.setFrameShadow(QtGui.QFrame.Plain)
         self.setLayout( QtGui.QHBoxLayout() )
-        #self.setStyleSheet("border: 1px solid red;")
         
         self.setFixedHeight(165)
-        self.setMinimumWidth(350)#400
-        
-        
+        self.setMinimumWidth(350)
+                
         ### Goal Icon ###
         pix = QtGui.QPixmap("No_Image_Available.png")
         
@@ -36,26 +36,14 @@ class GoalWidget(QtGui.QFrame):
         
         self.goalIconLabel.doubleClicked.connect(self._selectImage)
         
-
-        
-        #self.goalIconLabel.setScaledContents(True)
-        #self.goalIconLabel.setStyleSheet("border: 1px solid blue;")
-        self.goalIcon = self.goalIconLabel
-        
-        #self.goalIcon.layout().addWidget(self.goalIconLabel)
-
-
         ### Button Layout
         self.minimizeButton = QtGui.QPushButton("Hide")
         self.startButton = QtGui.QPushButton("Start")
         self.removeButton = QtGui.QPushButton("Remove")
         self.saveButton = QtGui.QPushButton("Save")
         
-
         self.removeButton.clicked.connect( lambda : self.removeClicked.emit(self) )
         self.startButton.clicked.connect(lambda : self.startClicked.emit(self) )
-       
-        
         
         buttonsLayout = QtGui.QHBoxLayout()
         buttonsLayout.addItem(QtGui.QSpacerItem(1,1,QtGui.QSizePolicy.Expanding,QtGui.QSizePolicy.Expanding))
@@ -63,14 +51,11 @@ class GoalWidget(QtGui.QFrame):
         buttonsLayout.addWidget(self.minimizeButton)
         buttonsLayout.addWidget(self.saveButton)
         buttonsLayout.addWidget(self.startButton)
-        
-        
-        
+            
         ### Title Bar ###
         self.titleBar = QtGui.QLineEdit()
         self.titleBar.setPlaceholderText("Enter Title Here")
         
-
         ### Date Widget
         self.dateLayout = QtGui.QHBoxLayout()
         
@@ -79,15 +64,13 @@ class GoalWidget(QtGui.QFrame):
         self.dateTimeEdit.setDateTime(self._currentDateTime() )
         
         self.dateLayout.addWidget(self.dateTimeEdit)
-        
-        
+         
         ### Select Image Widget
         self.selectImageLayout = QtGui.QHBoxLayout()
         
         self.selectImageEdit = QtGui.QLineEdit()
         self.selectImageEdit.setText("Select Image")
         self.selectImageEdit.setReadOnly(True)
-        
         
         self.selectImageEdit.setStyleSheet(r"""
         color: #808080;
@@ -96,13 +79,11 @@ class GoalWidget(QtGui.QFrame):
         border-radius: 3px;
         """)
         
-        
         self.selectImageButton = QtGui.QPushButton("Browse")
         self.selectImageButton.clicked.connect(self._selectImage)
          
         self.selectImageLayout.addWidget(self.selectImageEdit)
         self.selectImageLayout.addWidget(self.selectImageButton)
-
 
         ### Select Audio Widget
         self.selectAudioLayout = QtGui.QHBoxLayout()
@@ -119,15 +100,13 @@ class GoalWidget(QtGui.QFrame):
         border-radius: 3px;
         """)
         
-        
         self.selectAudioButton = QtGui.QPushButton("Browse Audio")
         self.selectAudioButton.clicked.connect(self._selectAudio)
         
         self.selectAudioLayout.addWidget(self.selectAudioEdit)
         self.selectAudioLayout.addWidget(self.selectAudioButton)
         
-        ###
-        
+        ### Add Widgets ###
         goalRightLayout = QtGui.QVBoxLayout() 
         goalRightLayout.addLayout( buttonsLayout )
         goalRightLayout.addWidget(self.titleBar)
@@ -136,7 +115,7 @@ class GoalWidget(QtGui.QFrame):
         goalRightLayout.addLayout(self.selectAudioLayout)
         goalRightLayout.addItem( QtGui.QSpacerItem(1,1,QtGui.QSizePolicy.Expanding,QtGui.QSizePolicy.Expanding) )
  
-        self.layout().addWidget(self.goalIcon)
+        self.layout().addWidget(self.goalIconLabel)
         self.layout().addLayout(goalRightLayout)
     
     def _loadSettings(self):
@@ -146,6 +125,7 @@ class GoalWidget(QtGui.QFrame):
             
     def _selectImage(self):
         fileName = str(QtGui.QFileDialog.getOpenFileName(self,"Select an Image",self.lastDirectory,"Image Files (*.png *.jpg *.bmp *.tif);"))
+        #Only continue when there's a selection
         if fileName == "": 
             return
         
@@ -153,7 +133,6 @@ class GoalWidget(QtGui.QFrame):
         directory.pop()
         self.lastDirectory = "/".join(directory)+"/" 
 
-        #print "Saving last image directory", self.lastDirectory
         self.settings.setValue("LastDirectory", QtCore.QVariant(QtCore.QString(self.lastDirectory)) )        
         self.selectImageEdit.setText(fileName)
         
@@ -168,31 +147,28 @@ class GoalWidget(QtGui.QFrame):
         directory.pop()
         self.lastDirectoryAudio = "/".join(directory)+"/" 
         
-        print "Saving last audio directory", self.lastDirectoryAudio
         self.settings.setValue("AudioLastDirectory", QtCore.QVariant(QtCore.QString(self.lastDirectoryAudio)) )        
         self.selectAudioEdit.setText(fileName)
         
     def _currentDateTime(self):
         return QtCore.QDateTime.currentDateTime()
     
-
 class GoalListWidgetPart(QtGui.QFrame):
     '''
-    A widget that acts as a piece of a list, although it is not part of a list view
+    A widget that acts as a part of a list widget, although it is a list view widget
     Represents goal threads that are currently running on the main widget
     Is used to keep track of running threads and to stop them as well
     '''
+    
     removeClicked = QtCore.pyqtSignal(object)
     
     def __init__(self,):   
         super(GoalListWidgetPart, self).__init__()
-        #self.setMaximumHeight(50)
-        #self.setMaximumWidth(400)
+
         self.setMinimumWidth(200)
         self.setFrameShape(QtGui.QFrame.StyledPanel)
 
         self.hlayout = QtGui.QHBoxLayout()
-        #self.hlayout.setSpacing(5)
         self.hlayout.setContentsMargins(10, 1, 1, 1)
         self.setLayout(self.hlayout)
         
@@ -205,10 +181,7 @@ class GoalListWidgetPart(QtGui.QFrame):
         self.dateTimeEdit.setDateTime(QtCore.QDateTime.currentDateTime() )
         self.dateTimeEdit.setReadOnly(True)
         
-        
-        #self.hlayout.addWidget(QtGui.QPushButton("DDD"))
         self.hlayout.addWidget(self.titleLabel)
         self.hlayout.addItem(QtGui.QSpacerItem(1, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum) )
         self.hlayout.addWidget(self.dateTimeEdit)
         self.hlayout.addWidget(self.removeButton)
-
